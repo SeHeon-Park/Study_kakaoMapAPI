@@ -14,7 +14,7 @@
 
 <script type="text/javascript"  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=dcea8d09f8f678726a52bb6b0423b2bb"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
-<script>
+<script th:inline="javascript">
     var mapContainer = document.getElementById('map'), // 지도를 표시할 div
         mapOption = {
             center: new kakao.maps.LatLng(33.450701, 126.570667), // 지도의 중심좌표
@@ -26,6 +26,7 @@
 
     function locationLoadSuccess(pos){
         // 현재 위치 받아오기
+
         var currentPos = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
         // 지도 이동(기존 위치와 가깝다면 부드럽게 이동)
         map.panTo(currentPos);
@@ -43,7 +44,7 @@
 
         $.ajax({
             type: "POST",
-            url : "/map/coordinate",
+            url : "/map/draw",
             contentType : "application/json",        //ajax로 formData 전송시 필요
             processData : false,
             dataType: 'JSON',
@@ -59,6 +60,41 @@
     function getCurrentPosBtn(){
         navigator.geolocation.getCurrentPosition(locationLoadSuccess, locationLoadError);
     }
+
+    $.ajax({
+        type : "POST",
+        url : "map/draw",
+        contentType : 'application/json;charset=UTF-8',
+        dataType : 'json',
+        data : {
+
+        },
+        success : function(data) {
+                alert(data);
+                alert(data.latitude);
+                alert(data.longitude);
+        },
+        error : function() {
+            alert("??");
+        }
+    });
+
+    var linePath = [
+        new kakao.maps.LatLng(1, 1),
+        new kakao.maps.LatLng(2, 2)
+    ]
+
+    // 지도에 표시할 선을 생성합니다
+    var polyline = new kakao.maps.Polyline({
+        path: linePath, // 선을 구성하는 좌표배열 입니다
+        strokeWeight: 5, // 선의 두께 입니다
+        strokeColor: '#FFAE00', // 선의 색깔입니다
+        strokeOpacity: 0.7, // 선의 불투명도 입니다 1에서 0 사이의 값이며 0에 가까울수록 투명합니다
+        strokeStyle: 'solid' // 선의 스타일입니다
+    });
+
+    // 지도에 선을 표시합니다
+    polyline.setMap(map);
 
 </script>
 </body>
