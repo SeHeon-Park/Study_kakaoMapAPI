@@ -1,6 +1,5 @@
 package hello.map.repository;
 
-
 import hello.map.entity.Coordinate;
 import org.springframework.data.jpa.repository.JpaRepository;
 

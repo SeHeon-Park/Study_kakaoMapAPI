@@ -3,14 +3,26 @@
 <head>
     <meta charset="utf-8">
     <title>지도 생성하기</title>
-
+    <style>
+        .info {position:relative;top:5px;left:5px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;font-size:12px;padding:5px;background:#fff;list-style:none;margin:0;}
+        .info:nth-of-type(n) {border:0; box-shadow:0px 1px 2px #888;}
+        .info .label {display:inline-block;width:50px;}
+        .number {font-weight:bold;color:#00a0e9;}
+    </style>
 </head>
 <body>
 <!-- 지도를 표시할 div 입니다 -->
-<div id="map" style="width:100%;height:1000px;"></div>
+<div id="map" style="width:100%;height:800px;"></div>
 
 <button type="submit" class="btn btn-lg btn-primary" id="getMyPositionBtn" onclick="getCurrentPosBtn()">내 위치 가져오기</button>
-
+<label>위도</label>
+    <input type="number" id="latitude"/>
+<label>경도</label>
+<input type="number" id="longitude"/>
+<button type="submit" class="btn btn-lg btn-primary" id="nextPosition" onclick="move()">이동 하기</button>
+<span>
+    <h2 id="score">점수: 0</h2>
+</span>
 
 <script type="text/javascript"  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=dcea8d09f8f678726a52bb6b0423b2bb"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
@@ -20,13 +32,15 @@
             center: new kakao.maps.LatLng(33.450701, 126.570667), // 지도의 중심좌표
             level: 3 // 지도의 확대 레벨
         };
+    var ltlg = [];
+    var polygon;
 
     // 지도를 표시할 div와  지도 옵션으로  지도를 생성합니다
     var map = new kakao.maps.Map(mapContainer, mapOption);
 
     function locationLoadSuccess(pos){
+        ltlg.push([pos.coords.latitude, pos.coords.longitude])
         // 현재 위치 받아오기
-
         var currentPos = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
         // 지도 이동(기존 위치와 가깝다면 부드럽게 이동)
         map.panTo(currentPos);
@@ -44,7 +58,7 @@
 
         $.ajax({
             type: "POST",
-            url : "/map/draw",
+            url : "/map/coordinate",
             contentType : "application/json",        //ajax로 formData 전송시 필요
             processData : false,
             dataType: 'JSON',
@@ -61,41 +75,84 @@
         navigator.geolocation.getCurrentPosition(locationLoadSuccess, locationLoadError);
     }
 
-    $.ajax({
-        type : "POST",
-        url : "map/draw",
-        contentType : 'application/json;charset=UTF-8',
-        dataType : 'json',
-        data : {
+    function move() {
+        var latitude = document.getElementById("latitude").value;
+        var longitude = document.getElementById("longitude").value;
+        ltlg.push([Number(latitude), Number(longitude)])
+        var coordinate = JSON.stringify({"latitude": latitude, "longitude": longitude, "startLocation": false});
+        console.log(latitude, longitude);
+        $.ajax({
+            type: "POST",
+            url: "/map/drawLine",
+            contentType: "application/json",
+            processData: false,
+            dataType: 'JSON',
+            data: coordinate,
+            success: function (data) {
+                if (data.startLocation) {
+                    drawPolygon();
+                } else {
+                    drawL = true;
+                    drawLine(data);
+                }
+            },
+            error: function () {
+                alert("error1");
+            }
+        });
 
-        },
-        success : function(data) {
-                alert(data);
-                alert(data.latitude);
-                alert(data.longitude);
-        },
-        error : function() {
-            alert("??");
+        function drawLine(data) {
+            var linePath = [
+                new kakao.maps.LatLng(data.prevLatitude, data.prevLongitude),
+                new kakao.maps.LatLng(data.nextLatitude, data.nextLongitude)
+            ]
+
+            // 지도에 표시할 선을 생성합니다
+            var polyline = new kakao.maps.Polyline({
+                path: linePath, // 선을 구성하는 좌표배열 입니다
+                strokeWeight: 5, // 선의 두께 입니다
+                strokeColor: '#260046', // 선의 색깔입니다
+                strokeOpacity: 0.7, // 선의 불투명도 입니다 1에서 0 사이의 값이며 0에 가까울수록 투명합니다
+                strokeStyle: 'solid' // 선의 스타일입니다
+            });
+
+                // 지도에 선을 표시합니다
+            polyline.setMap(map);
         }
-    });
 
-    var linePath = [
-        new kakao.maps.LatLng(1, 1),
-        new kakao.maps.LatLng(2, 2)
-    ]
-
-    // 지도에 표시할 선을 생성합니다
-    var polyline = new kakao.maps.Polyline({
-        path: linePath, // 선을 구성하는 좌표배열 입니다
-        strokeWeight: 5, // 선의 두께 입니다
-        strokeColor: '#FFAE00', // 선의 색깔입니다
-        strokeOpacity: 0.7, // 선의 불투명도 입니다 1에서 0 사이의 값이며 0에 가까울수록 투명합니다
-        strokeStyle: 'solid' // 선의 스타일입니다
-    });
-
-    // 지도에 선을 표시합니다
-    polyline.setMap(map);
-
+        function drawPolygon() {
+            var coor = []
+            for (v in ltlg){
+                console.log(v)
+                coor.push(new kakao.maps.LatLng(ltlg[v][0], ltlg[v][1]))
+            }
+            // console.log(ltlg)
+            // console.log(coor)
+            polygon = new kakao.maps.Polygon({
+                path: coor, // 다각형을 구성하는 좌표 배열입니다 클릭한 위치를 넣어줍니다
+                strokeWeight: 3, // 선의 두께입니다
+                strokeColor: '#260046', // 선의 색깔입니다
+                strokeOpacity: 1, // 선의 불투명도입니다 0에서 1 사이값이며 0에 가까울수록 투명합니다
+                strokeStyle: 'solid', // 선의 스타일입니다
+                fillColor: '#260046', // 채우기 색깔입니다
+                fillOpacity: 0.2 // 채우기 불투명도입니다
+            });
+            polygon.setMap(map);
+            var area = Math.round(polygon.getArea()), // 다각형의 총면적을 계산합니다
+                content = '<div class="info">총면적 <span class="number"> ' + area + '</span> m<sup>2</sup></div>'; // 커스텀오버레이에 추가될 내용입니다
+            var path = polygon.getPath();
+            // 면적정보를 지도에 표시합니다
+            areaOverlay = new kakao.maps.CustomOverlay({
+                map: map, // 커스텀오버레이를 표시할 지도입니다
+                content: content,  // 커스텀오버레이에 표시할 내용입니다
+                xAnchor: 0,
+                yAnchor: 0,
+                position: path[path.length-1]  // 커스텀오버레이를 표시할 위치입니다. 위치는 다각형의 마지막 좌표로 설정합니다
+            });
+            var score = document.getElementById("score")
+            score.innerText="점수: "+ area;
+        }
+    }
 </script>
 </body>
 </html>

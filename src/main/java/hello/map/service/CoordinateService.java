@@ -20,15 +20,15 @@ public class CoordinateService {
         coordinateRepository.save(coordinate);
     }
 
-    public List<Coordinate> findAll(){
-        return  coordinateRepository.findAll();
-    }
-
     public Coordinate recentCoordinate() {
         return coordinateRepository.findFirstByOrderByIdDesc();
     }
 
     public Long count(){
         return coordinateRepository.count();
+    }
+
+    public List<Coordinate> findAll(){
+        return coordinateRepository.findAll();
     }
 }

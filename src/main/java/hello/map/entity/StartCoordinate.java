@@ -9,10 +9,10 @@ import javax.persistence.Id;
 
 @Entity
 @Data
-public class Coordinate {
+public class StartCoordinate {
     @Id
     @GeneratedValue
-    @Column(name = "coordinate_id")
+    @Column(name = "startCoordinate_id")
     private Long id;
 
     private Number latitude;
