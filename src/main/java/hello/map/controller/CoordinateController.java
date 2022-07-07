@@ -35,8 +35,8 @@ public class CoordinateController {
         startCoordinate.setLatitude(latitude);
         startCoordinate.setLongitude(longitude);
         startCoordinateService.save(startCoordinate);
-        System.out.println(latitude);
-        System.out.println(longitude);
+        System.out.println("현재 위도: " + latitude);
+        System.out.println("현재 경도: " + longitude);
         String response = "good : " + latitude + ", "+ longitude;
         return ResponseEntity.ok(response);
     }
@@ -68,7 +68,6 @@ public class CoordinateController {
         coordinate.setLatitude(mapRequestDto.getLatitude());
         coordinate.setLongitude(mapRequestDto.getLongitude());
         coordinateService.save(coordinate);
-        System.out.println(startCoordinateService.checkStartLocation(latitude, longitude));
         return mapResponseDto;
     }
 }

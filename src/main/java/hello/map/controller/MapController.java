@@ -10,8 +10,6 @@ public class MapController {
 
     @GetMapping("/map")
     public String showMap(Model model){
-        Member member = new Member("박세헌", 0);
-        model.addAttribute("member", member);
         return "/home/map";
     }
 
