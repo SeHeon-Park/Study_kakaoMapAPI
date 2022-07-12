@@ -16,15 +16,16 @@
 
 <button type="submit" class="btn btn-lg btn-primary" id="getMyPositionBtn" onclick="getCurrentPosBtn()">내 위치 가져오기</button>
 <label>위도</label>
-    <input type="number" id="latitude"/>
+    <input type="number" id="latitude" value="37.2809"/>
 <label>경도</label>
-<input type="number" id="longitude"/>
+<input type="number" id="longitude" value="127.0381"/>
 <button type="submit" class="btn btn-lg btn-primary" id="nextPosition" onclick="move()">이동 하기</button>
 <span>
-    <h2 id="score">점수: 0</h2>
+    <h2 id="score1">나의 점수: 0</h2>
+    <h2 id="score2">상대 점수: 0</h2>
 </span>
 
-<script type="text/javascript"  src="//dapi.kakao.com/v2/maps/sdk.js?appkey=dcea8d09f8f678726a52bb6b0423b2bb"></script>
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=dcea8d09f8f678726a52bb6b0423b2bb"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
 <script th:inline="javascript">
     var mapContainer = document.getElementById('map'), // 지도를 표시할 div
@@ -33,13 +34,46 @@
             level: 3 // 지도의 확대 레벨
         };
     var ltlg = [];
+    var socketltlg = []
     var polygon;
+    var webSocket = new WebSocket("ws://localhost:8080/receive");
+
+    webSocket.onmessage = function (receiveMsg){
+        let parse = JSON.parse(receiveMsg.data);
+        socketltlg.push([parse.nextLatitude, parse.nextLongitude])
+
+        var lastLatitude = Math.round(socketltlg[socketltlg.length-1][0]*10000)/10000.0;
+        var lastLongitude = Math.round(socketltlg[socketltlg.length-1][1]*10000)/10000.0;
+        var firstLatitude = Math.round(socketltlg[0][0]*10000)/10000.0;
+        var firstLongitude = Math.round(socketltlg[0][1]*10000)/10000.0;
+        if ((lastLatitude===firstLatitude) && (lastLongitude===firstLongitude)){
+            drawPolygonSocket(socketltlg);
+            return;
+        }
+
+        var line2Path = [
+            new kakao.maps.LatLng(parse.prevLatitude, parse.prevLongitude),
+            new kakao.maps.LatLng(parse.nextLatitude, parse.nextLongitude)
+        ]
+
+        var polyline = new kakao.maps.Polyline({
+            path: line2Path, // 선을 구성하는 좌표배열 입니다
+            strokeWeight: 5, // 선의 두께 입니다
+            strokeColor: '#FF6666', // 선의 색깔입니다
+            strokeOpacity: 0.7, // 선의 불투명도 입니다 1에서 0 사이의 값이며 0에 가까울수록 투명합니다
+            strokeStyle: 'solid' // 선의 스타일입니다
+        });
+
+        // 지도에 선을 표시합니다
+        polyline.setMap(map);
+    }
 
     // 지도를 표시할 div와  지도 옵션으로  지도를 생성합니다
     var map = new kakao.maps.Map(mapContainer, mapOption);
 
     function locationLoadSuccess(pos){
         ltlg.push([pos.coords.latitude, pos.coords.longitude])
+        socketltlg.push([pos.coords.latitude, pos.coords.longitude])
         // 현재 위치 받아오기
         var currentPos = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
         // 지도 이동(기존 위치와 가깝다면 부드럽게 이동)
@@ -80,7 +114,7 @@
         var longitude = document.getElementById("longitude").value;
         ltlg.push([Number(latitude), Number(longitude)])
         var coordinate = JSON.stringify({"latitude": latitude, "longitude": longitude, "startLocation": false});
-        console.log(latitude, longitude);
+
         $.ajax({
             type: "POST",
             url: "/map/drawLine",
@@ -89,11 +123,20 @@
             dataType: 'JSON',
             data: coordinate,
             success: function (data) {
+                var coordinateData = JSON.stringify({"prevLatitude": data.prevLatitude,
+                    "prevLongitude": data.prevLongitude,
+                    "nextLatitude": data.nextLatitude,
+                    "nextLongitude": data.nextLongitude});
+                webSocket.send(coordinateData);
                 if (data.startLocation) {
-                    drawPolygon();
+                    drawPolygon(ltlg);
                 } else {
                     drawL = true;
-                    drawLine(data);
+                    var linePath = [
+                        new kakao.maps.LatLng(data.prevLatitude, data.prevLongitude),
+                        new kakao.maps.LatLng(data.nextLatitude, data.nextLongitude)
+                    ]
+                    drawLine(linePath);
                 }
             },
             error: function () {
@@ -101,12 +144,7 @@
             }
         });
 
-        function drawLine(data) {
-            var linePath = [
-                new kakao.maps.LatLng(data.prevLatitude, data.prevLongitude),
-                new kakao.maps.LatLng(data.nextLatitude, data.nextLongitude)
-            ]
-
+        function drawLine(linePath) {
             // 지도에 표시할 선을 생성합니다
             var polyline = new kakao.maps.Polyline({
                 path: linePath, // 선을 구성하는 좌표배열 입니다
@@ -116,18 +154,17 @@
                 strokeStyle: 'solid' // 선의 스타일입니다
             });
 
-                // 지도에 선을 표시합니다
+            // 지도에 선을 표시합니다
             polyline.setMap(map);
         }
 
-        function drawPolygon() {
+        function drawPolygon(arr) {
             var coor = []
-            for (v in ltlg){
+            for (v in arr){
                 console.log(v)
-                coor.push(new kakao.maps.LatLng(ltlg[v][0], ltlg[v][1]))
+                coor.push(new kakao.maps.LatLng(arr[v][0], arr[v][1]))
             }
-            // console.log(ltlg)
-            // console.log(coor)
+
             polygon = new kakao.maps.Polygon({
                 path: coor, // 다각형을 구성하는 좌표 배열입니다 클릭한 위치를 넣어줍니다
                 strokeWeight: 3, // 선의 두께입니다
@@ -149,9 +186,40 @@
                 yAnchor: 0,
                 position: path[path.length-1]  // 커스텀오버레이를 표시할 위치입니다. 위치는 다각형의 마지막 좌표로 설정합니다
             });
-            var score = document.getElementById("score")
-            score.innerText="점수: "+ area;
+            var score = document.getElementById("score1")
+            score.innerText="나의 점수: "+ area;
         }
+    }
+    function drawPolygonSocket(arr) {
+        var coor = []
+        for (v in arr){
+            console.log(v)
+            coor.push(new kakao.maps.LatLng(arr[v][0], arr[v][1]))
+        }
+
+        polygon = new kakao.maps.Polygon({
+            path: coor, // 다각형을 구성하는 좌표 배열입니다 클릭한 위치를 넣어줍니다
+            strokeWeight: 3, // 선의 두께입니다
+            strokeColor: '#FF6666', // 선의 색깔입니다
+            strokeOpacity: 1, // 선의 불투명도입니다 0에서 1 사이값이며 0에 가까울수록 투명합니다
+            strokeStyle: 'solid', // 선의 스타일입니다
+            fillColor: '#FF6666', // 채우기 색깔입니다
+            fillOpacity: 0.2 // 채우기 불투명도입니다
+        });
+        polygon.setMap(map);
+        var area = Math.round(polygon.getArea()), // 다각형의 총면적을 계산합니다
+            content = '<div class="info">총면적 <span class="number"> ' + area + '</span> m<sup>2</sup></div>'; // 커스텀오버레이에 추가될 내용입니다
+        var path = polygon.getPath();
+        // 면적정보를 지도에 표시합니다
+        areaOverlay = new kakao.maps.CustomOverlay({
+            map: map, // 커스텀오버레이를 표시할 지도입니다
+            content: content,  // 커스텀오버레이에 표시할 내용입니다
+            xAnchor: 0,
+            yAnchor: 0,
+            position: path[path.length-1]  // 커스텀오버레이를 표시할 위치입니다. 위치는 다각형의 마지막 좌표로 설정합니다
+        });
+        var score = document.getElementById("score2")
+        score.innerText="상대 점수: "+ area;
     }
 </script>
 </body>
