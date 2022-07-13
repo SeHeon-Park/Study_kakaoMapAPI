@@ -37,8 +37,10 @@
     var socketltlg = []
     var polygon;
     var webSocket = new WebSocket("ws://localhost:8080/receive");
+    socketInfo = JSON.stringify({"id" : 0})
 
     webSocket.onmessage = function (receiveMsg){
+        console.log(receiveMsg.data);
         let parse = JSON.parse(receiveMsg.data);
         socketltlg.push([parse.nextLatitude, parse.nextLongitude])
 
@@ -56,16 +58,7 @@
             new kakao.maps.LatLng(parse.nextLatitude, parse.nextLongitude)
         ]
 
-        var polyline = new kakao.maps.Polyline({
-            path: line2Path, // 선을 구성하는 좌표배열 입니다
-            strokeWeight: 5, // 선의 두께 입니다
-            strokeColor: '#FF6666', // 선의 색깔입니다
-            strokeOpacity: 0.7, // 선의 불투명도 입니다 1에서 0 사이의 값이며 0에 가까울수록 투명합니다
-            strokeStyle: 'solid' // 선의 스타일입니다
-        });
-
-        // 지도에 선을 표시합니다
-        polyline.setMap(map);
+        drawLineSocket(line2Path);
     }
 
     // 지도를 표시할 div와  지도 옵션으로  지도를 생성합니다
@@ -93,7 +86,7 @@
         $.ajax({
             type: "POST",
             url : "/map/coordinate",
-            contentType : "application/json",        //ajax로 formData 전송시 필요
+            contentType : "application/json",
             processData : false,
             dataType: 'JSON',
             data : info
@@ -113,6 +106,7 @@
         var latitude = document.getElementById("latitude").value;
         var longitude = document.getElementById("longitude").value;
         ltlg.push([Number(latitude), Number(longitude)])
+        console.log(ltlg)
         var coordinate = JSON.stringify({"latitude": latitude, "longitude": longitude, "startLocation": false});
 
         $.ajax({
@@ -123,18 +117,20 @@
             dataType: 'JSON',
             data: coordinate,
             success: function (data) {
-                var coordinateData = JSON.stringify({"prevLatitude": data.prevLatitude,
-                    "prevLongitude": data.prevLongitude,
-                    "nextLatitude": data.nextLatitude,
-                    "nextLongitude": data.nextLongitude});
+                var coordinateData = JSON.stringify({
+                    "id": 0,
+                    "prevLatitude": ltlg[ltlg.length-2][0],
+                    "prevLongitude": ltlg[ltlg.length-2][1],
+                    "nextLatitude": ltlg[ltlg.length-1][0],
+                    "nextLongitude": ltlg[ltlg.length-1][1]});
                 webSocket.send(coordinateData);
                 if (data.startLocation) {
                     drawPolygon(ltlg);
                 } else {
                     drawL = true;
                     var linePath = [
-                        new kakao.maps.LatLng(data.prevLatitude, data.prevLongitude),
-                        new kakao.maps.LatLng(data.nextLatitude, data.nextLongitude)
+                        new kakao.maps.LatLng(ltlg[ltlg.length-2][0], ltlg[ltlg.length-2][1]),
+                        new kakao.maps.LatLng(ltlg[ltlg.length-1][0], ltlg[ltlg.length-1][1])
                     ]
                     drawLine(linePath);
                 }
@@ -161,7 +157,6 @@
         function drawPolygon(arr) {
             var coor = []
             for (v in arr){
-                console.log(v)
                 coor.push(new kakao.maps.LatLng(arr[v][0], arr[v][1]))
             }
 
@@ -190,10 +185,24 @@
             score.innerText="나의 점수: "+ area;
         }
     }
+
+    function drawLineSocket(linePath) {
+        // 지도에 표시할 선을 생성합니다
+        var polyline = new kakao.maps.Polyline({
+            path: linePath, // 선을 구성하는 좌표배열 입니다
+            strokeWeight: 5, // 선의 두께 입니다
+            strokeColor: '#FF6666', // 선의 색깔입니다
+            strokeOpacity: 0.7, // 선의 불투명도 입니다 1에서 0 사이의 값이며 0에 가까울수록 투명합니다
+            strokeStyle: 'solid' // 선의 스타일입니다
+        });
+
+        // 지도에 선을 표시합니다
+        polyline.setMap(map);
+    }
+
     function drawPolygonSocket(arr) {
         var coor = []
         for (v in arr){
-            console.log(v)
             coor.push(new kakao.maps.LatLng(arr[v][0], arr[v][1]))
         }
 

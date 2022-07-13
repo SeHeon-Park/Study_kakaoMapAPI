@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import org.json.JSONObject;
 
 @Slf4j
 @Service
@@ -31,12 +32,13 @@ public class WebSocketData {
 
     @OnMessage
     public void onMessage(String data, Session session) throws Exception{
-        log.info(session.getId());
         log.info("receive data : {}", data);
+        JSONObject jsonObject = new JSONObject(data);
+        jsonObject.put("id", session.getId());
         for(Session s : clients) {
             log.info("send data : {}", data);
             if (!Objects.equals(s, session)) {
-                s.getBasicRemote().sendText(data);
+                s.getBasicRemote().sendText(jsonObject.toString());
             }
         }
     }

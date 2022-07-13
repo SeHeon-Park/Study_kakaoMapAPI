@@ -50,6 +50,7 @@ dependencies {
 	implementation 'org.webjars:stomp-websocket:2.3.3-1'
 	implementation 'com.google.code.gson:gson:2.8.0'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.json:json:20171018'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
 	compile 'org.projectlombok:lombok'
